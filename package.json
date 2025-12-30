@@ -12,7 +12,8 @@
     "@nomicfoundation/hardhat-toolbox": "2.0.2",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "chai": "^4.3.7",
-    "hardhat": "2.19.5"
+    "hardhat": "2.19.5",
+    "solidity-coverage": "^0.8.17"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.0"

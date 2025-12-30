@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
+require("solidity-coverage");
 
 module.exports = {
   solidity: {
@@ -7,8 +8,13 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200,
-      },
-    },
+        runs: 200
+      }
+    }
   },
+  networks: {
+    hardhat: {
+      chainId: 31337
+    }
+  }
 };
