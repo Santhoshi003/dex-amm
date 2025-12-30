@@ -3,22 +3,33 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// @title Decentralized Exchange (AMM)
+/// @notice Implements a constant product Automated Market Maker similar to Uniswap V2
+/// @dev Supports liquidity provision, swaps, and fee distribution
 contract DEX {
-    // Token addresses
+    /// @notice Address of token A
     address public tokenA;
+
+    /// @notice Address of token B
     address public tokenB;
 
-    // Pool reserves
+    /// @notice Current reserve of token A
     uint256 public reserveA;
+
+    /// @notice Current reserve of token B
     uint256 public reserveB;
 
-    // Total LP supply
+    /// @notice Total liquidity (LP supply)
     uint256 public totalLiquidity;
 
-    // LP balance per provider
+    /// @notice Mapping of provider address to LP balance
     mapping(address => uint256) public liquidity;
 
-    // ---------------- EVENTS ----------------
+    /// @notice Emitted when liquidity is added to the pool
+    /// @param provider Address providing liquidity
+    /// @param amountA Amount of token A deposited
+    /// @param amountB Amount of token B deposited
+    /// @param liquidityMinted LP tokens minted
     event LiquidityAdded(
         address indexed provider,
         uint256 amountA,
@@ -26,6 +37,11 @@ contract DEX {
         uint256 liquidityMinted
     );
 
+    /// @notice Emitted when liquidity is removed from the pool
+    /// @param provider Address removing liquidity
+    /// @param amountA Amount of token A returned
+    /// @param amountB Amount of token B returned
+    /// @param liquidityBurned LP tokens burned
     event LiquidityRemoved(
         address indexed provider,
         uint256 amountA,
@@ -33,6 +49,12 @@ contract DEX {
         uint256 liquidityBurned
     );
 
+    /// @notice Emitted when a swap occurs
+    /// @param trader Address performing the swap
+    /// @param tokenIn Address of input token
+    /// @param tokenOut Address of output token
+    /// @param amountIn Amount of input token
+    /// @param amountOut Amount of output token
     event Swap(
         address indexed trader,
         address indexed tokenIn,
@@ -41,14 +63,18 @@ contract DEX {
         uint256 amountOut
     );
 
-    // ---------------- CONSTRUCTOR ----------------
+    /// @notice Initializes the DEX with two ERC20 tokens
+    /// @param _tokenA Address of token A
+    /// @param _tokenB Address of token B
     constructor(address _tokenA, address _tokenB) {
         tokenA = _tokenA;
         tokenB = _tokenB;
     }
 
-    // ---------------- LIQUIDITY ----------------
-
+    /// @notice Add liquidity to the pool
+    /// @param amountA Amount of token A to deposit
+    /// @param amountB Amount of token B to deposit
+    /// @return liquidityMinted Amount of LP tokens minted
     function addLiquidity(uint256 amountA, uint256 amountB)
         external
         returns (uint256 liquidityMinted)
@@ -59,10 +85,10 @@ contract DEX {
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
 
         if (totalLiquidity == 0) {
-            // First provider sets initial price
+            // First liquidity provider sets initial price
             liquidityMinted = sqrt(amountA * amountB);
         } else {
-            // Proportional LP minting
+            // Subsequent providers mint proportionally
             liquidityMinted = (amountA * totalLiquidity) / reserveA;
         }
 
@@ -77,6 +103,10 @@ contract DEX {
         emit LiquidityAdded(msg.sender, amountA, amountB, liquidityMinted);
     }
 
+    /// @notice Remove liquidity from the pool
+    /// @param liquidityAmount Amount of LP tokens to burn
+    /// @return amountA Amount of token A returned
+    /// @return amountB Amount of token B returned
     function removeLiquidity(uint256 liquidityAmount)
         external
         returns (uint256 amountA, uint256 amountB)
@@ -96,16 +126,12 @@ contract DEX {
         IERC20(tokenA).transfer(msg.sender, amountA);
         IERC20(tokenB).transfer(msg.sender, amountB);
 
-        emit LiquidityRemoved(
-            msg.sender,
-            amountA,
-            amountB,
-            liquidityAmount
-        );
+        emit LiquidityRemoved(msg.sender, amountA, amountB, liquidityAmount);
     }
 
-    // ---------------- SWAPS ----------------
-
+    /// @notice Swap token A for token B
+    /// @param amountAIn Amount of token A input
+    /// @return amountBOut Amount of token B output
     function swapAForB(uint256 amountAIn)
         external
         returns (uint256 amountBOut)
@@ -125,6 +151,9 @@ contract DEX {
         emit Swap(msg.sender, tokenA, tokenB, amountAIn, amountBOut);
     }
 
+    /// @notice Swap token B for token A
+    /// @param amountBIn Amount of token B input
+    /// @return amountAOut Amount of token A output
     function swapBForA(uint256 amountBIn)
         external
         returns (uint256 amountAOut)
@@ -144,13 +173,16 @@ contract DEX {
         emit Swap(msg.sender, tokenB, tokenA, amountBIn, amountAOut);
     }
 
-    // ---------------- VIEW FUNCTIONS ----------------
-
+    /// @notice Get the current price of token A in terms of token B
+    /// @return price Price scaled by 1e18
     function getPrice() external view returns (uint256 price) {
         if (reserveA == 0) return 0;
         return (reserveB * 1e18) / reserveA;
     }
 
+    /// @notice Get current reserves of the pool
+    /// @return _reserveA Reserve of token A
+    /// @return _reserveB Reserve of token B
     function getReserves()
         external
         view
@@ -159,8 +191,11 @@ contract DEX {
         return (reserveA, reserveB);
     }
 
-    // ---------------- MATH ----------------
-
+    /// @notice Calculate output amount for a swap including 0.3% fee
+    /// @param amountIn Input token amount
+    /// @param reserveIn Input token reserve
+    /// @param reserveOut Output token reserve
+    /// @return amountOut Output token amount
     function getAmountOut(
         uint256 amountIn,
         uint256 reserveIn,
@@ -168,13 +203,14 @@ contract DEX {
     ) public pure returns (uint256 amountOut) {
         require(reserveIn > 0 && reserveOut > 0, "Empty pool");
 
-        uint256 amountInWithFee = amountIn * 997; // 0.3% fee
+        uint256 amountInWithFee = amountIn * 997;
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = (reserveIn * 1000) + amountInWithFee;
 
         amountOut = numerator / denominator;
     }
 
+    /// @dev Integer square root used for initial LP minting
     function sqrt(uint256 y) internal pure returns (uint256 z) {
         if (y > 3) {
             z = y;
