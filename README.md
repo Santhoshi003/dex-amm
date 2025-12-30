@@ -2,53 +2,56 @@
 
 ## Overview
 
-This project implements a **simplified Decentralized Exchange (DEX)** using an **Automated Market Maker (AMM)** model similar to **Uniswap V2**.
-The DEX allows users to:
+This project implements a **Decentralized Exchange (DEX)** using an **Automated Market Maker (AMM)** model similar to Uniswap V2.
+The exchange enables decentralized token trading without order books or intermediaries by using on-chain liquidity pools and mathematical pricing.
 
-* Provide liquidity to a token pair and receive LP (Liquidity Provider) shares
-* Remove liquidity and redeem their proportional share of the pool
-* Swap between two ERC-20 tokens without an order book
-* Earn trading fees as a liquidity provider
+Users can:
 
-The system is fully **on-chain**, **non-custodial**, and **permissionless**, with all logic implemented in Solidity and validated through an extensive automated test suite.
+* Provide liquidity and earn fees
+* Remove liquidity at any time
+* Swap between two ERC-20 tokens
+* Trade in a fully non-custodial and transparent manner
+
+All logic is implemented in Solidity, validated through an extensive automated test suite, and packaged with Docker for reproducible execution.
 
 ---
 
 ## Features
 
-* Initial and subsequent liquidity provision
-* LP token accounting using proportional shares
-* Liquidity removal with correct reserve calculations
+* Add initial and subsequent liquidity to a token pair
+* Mint and track LP (Liquidity Provider) shares
+* Remove liquidity proportionally to pool ownership
 * Token swaps using the constant product formula (x × y = k)
-* 0.3% trading fee retained in the pool for LPs
+* 0.3% trading fee distributed to liquidity providers
 * Accurate price calculation based on reserves
-* Event emission for all major actions
-* 30+ automated tests covering core logic and edge cases
-* Fully containerized Docker setup for reproducible evaluation
+* Event emission for liquidity and swap actions
+* 30+ automated tests covering normal and edge cases
+* Docker-based execution for consistent environments
 
 ---
 
 ## Architecture
 
-### Contract Structure
+### Smart Contracts
 
 * **DEX.sol**
 
-  * Core AMM logic
-  * Manages reserves, swaps, liquidity, and fees
+  * Core AMM implementation
+  * Manages reserves, swaps, fees, and liquidity accounting
+
 * **MockERC20.sol**
 
   * Simple ERC-20 token used for testing
-  * Includes minting for test scenarios
+  * Includes mint functionality for test scenarios
 
 ### High-Level Flow
 
-1. Users approve tokens to the DEX
-2. Liquidity providers deposit Token A and Token B
-3. The DEX updates reserves and mints LP shares
+1. Tokens are approved to the DEX contract
+2. Liquidity providers deposit two tokens into the pool
+3. The pool updates reserves and mints LP shares
 4. Traders swap tokens against the pool
 5. Fees remain in the pool, increasing LP value
-6. LPs withdraw their proportional share later
+6. Liquidity providers withdraw their proportional share
 
 ---
 
@@ -56,7 +59,7 @@ The system is fully **on-chain**, **non-custodial**, and **permissionless**, wit
 
 ### Constant Product Formula
 
-The AMM follows the invariant:
+The AMM pricing follows the invariant:
 
 ```
 x × y = k
@@ -68,14 +71,14 @@ Where:
 * `y` = reserve of Token B
 * `k` = constant value
 
-After each swap, `k` **never decreases**.
-Because fees remain in the pool, `k` **slightly increases over time**, benefiting liquidity providers.
+After each trade, the product of reserves never decreases.
+Because fees remain in the pool, `k` increases slightly over time, which represents earnings for liquidity providers.
 
 ---
 
 ### Fee Calculation (0.3%)
 
-A 0.3% fee is applied to each swap:
+A 0.3% fee is applied to every swap:
 
 ```
 amountInWithFee = amountIn × 997
@@ -84,47 +87,46 @@ denominator = (reserveIn × 1000) + amountInWithFee
 amountOut = numerator / denominator
 ```
 
-* 99.7% of input is used for price calculation
-* 0.3% stays in the pool as fees
-* Fees are automatically distributed via increased reserves
+* 99.7% of the input amount is used for pricing
+* 0.3% remains in the pool as fees
+* Fees are automatically distributed through increased reserves
 
 ---
 
 ### LP Token Minting
 
-#### Initial Liquidity (First Provider)
+#### Initial Liquidity
+
+For the first liquidity provider:
 
 ```
 liquidityMinted = sqrt(amountA × amountB)
 ```
 
-* First provider sets the initial price
-* LP shares represent 100% of the pool
+This provider sets the initial price and owns 100% of the pool.
 
 #### Subsequent Liquidity
+
+For later providers:
 
 ```
 liquidityMinted = (amountA × totalLiquidity) / reserveA
 ```
 
-* Ensures price ratio is preserved
-* LP shares represent proportional ownership
+This ensures the existing price ratio is preserved and LP shares represent proportional ownership.
 
 ---
 
 ### Liquidity Removal
 
-When LP tokens are burned:
+When LP shares are burned:
 
 ```
 amountA = (liquidityBurned × reserveA) / totalLiquidity
 amountB = (liquidityBurned × reserveB) / totalLiquidity
 ```
 
-This guarantees:
-
-* Fair withdrawal
-* Fees earned are included automatically
+This guarantees fair withdrawal including accumulated fees.
 
 ---
 
@@ -132,16 +134,16 @@ This guarantees:
 
 ### Prerequisites
 
-* Node.js (v16 / v18 recommended)
-* Docker & Docker Compose
+* Node.js (v16 or v18 recommended)
+* Docker and Docker Compose
 * Git
 
 ---
 
-### Local Setup (Without Docker)
+### Local Execution (Without Docker)
 
 ```bash
-git clone <your-repo-url>
+git clone <repository-url>
 cd dex-amm
 
 npm install --legacy-peer-deps
@@ -157,7 +159,7 @@ Expected output:
 
 ---
 
-### Docker Setup (Evaluator Environment)
+### Docker Execution (Recommended)
 
 ```bash
 docker-compose up -d
@@ -175,66 +177,59 @@ Expected:
 
 ## Testing
 
-* **30+ automated test cases**
-* Covers:
+* 30+ automated test cases
+* Tests include:
 
   * Liquidity management
   * LP accounting
-  * Swaps (A → B and B → A)
+  * Token swaps
   * Fee accumulation
   * Price updates
   * Edge cases
   * Event emissions
-  * Multi-user interactions
-* Tests located in:
+  * Multiple user interactions
 
-  ```
-  test/DEX.test.js
-  ```
+Test file:
+
+```
+test/DEX.test.js
+```
 
 ---
 
 ## Contract Addresses
 
-This project is evaluated in a **local / Docker environment**.
+This project is designed for local and containerized execution.
 No public testnet deployment is required.
-
-(If deployed later, addresses can be added here.)
 
 ---
 
 ## Known Limitations
 
-* Supports only a **single trading pair**
+* Supports a single token pair
 * No slippage protection (`minAmountOut`)
-* No deadline parameter for time-bound swaps
-* No flash swap support
+* No deadline parameter for swaps
+* No flash swap functionality
 
-These were intentionally excluded to keep the implementation focused on core AMM mechanics.
+These features can be added as extensions but were intentionally excluded to keep the core AMM logic clear and focused.
 
 ---
 
 ## Security Considerations
 
-* Solidity `^0.8.x` prevents integer overflow/underflow
-* Input validation for zero values and invalid liquidity removal
-* No external price oracle dependency
-* Fee logic applied **before** swap calculations
+* Solidity `^0.8.x` prevents integer overflow and underflow
+* Input validation for zero values and invalid operations
+* Fee calculation applied before pricing logic
 * Events emitted after state updates
-* Simple architecture reduces attack surface
+* Minimal external dependencies to reduce attack surface
 
-For a production system, additional protections such as:
-
-* ReentrancyGuard
-* Slippage protection
-* MEV mitigation
-  would be recommended.
+For production usage, additional safeguards such as slippage limits, reentrancy protection, and MEV mitigation should be considered.
 
 ---
 
-## Verification Checklist
+## Verification
 
-Before submission, the following commands were verified:
+The following commands were used to verify correctness:
 
 ```bash
 docker-compose exec app npm run compile
@@ -244,14 +239,14 @@ docker-compose exec app npm run coverage
 
 Results:
 
-* ✔ Contracts compile successfully
-* ✔ All 30+ tests pass
-* ✔ Coverage ≥ 80%
-* ✔ Docker environment works as specified
+* Contracts compile successfully
+* All tests pass
+* Coverage meets requirements
+* Docker environment works as expected
 
 ---
 
-## Conclusion
+## Summary
 
-This project demonstrates a complete, test-driven implementation of a Uniswap-style AMM DEX.
-It covers **core DeFi mechanics**, **economic modeling**, **smart contract security**, and **containerized evaluation**, providing a strong foundation for more advanced decentralized exchange designs.
+This project provides a complete implementation of a Uniswap-style AMM DEX, demonstrating decentralized trading mechanics, liquidity economics, and smart contract design best practices.
+It serves as a solid foundation for more advanced decentralized finance systems.
